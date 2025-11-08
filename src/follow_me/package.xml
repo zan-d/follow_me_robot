@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>follow_me</name>
+  <version>0.0.1</version>
+  <description>follow me for students"</description>
+
+  <maintainer email="olivier@todo.todo">olivier</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- À adapter selon les dépendances réelles -->
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

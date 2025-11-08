@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>action</name>
+  <version>0.0.1</version>
+  <description>follow me for the course "Robotics and IoT"</description>
+
+  <maintainer email="olivier@todo.todo">olivier</maintainer>
+  <license>MIT</license>  <!-- Remplace par ta vraie licence si besoin -->
+
+  <!-- Outils de build -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Dépendances build / exec : à adapter selon ton code -->
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>tf2</depend>
+  <depend>std_srvs</depend>
+  <depend>action_complete</depend>
+
+  <!-- Pour les messages personnalisés (si tu en as) -->
+  <!--
+  <build_depend>rosidl_default_generators</build_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
+  -->
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
