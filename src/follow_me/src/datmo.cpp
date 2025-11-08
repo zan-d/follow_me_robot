@@ -8,16 +8,25 @@ void Datmo::store_background()
     // TO COMPLETE
     // store all the hits of the laser in the background table
     for (int loop_hit = 0; loop_hit < nb_beams_; loop_hit++)
-        ;
+    {
+        // Display laser hit information in the terminal to understand the data structure and types
+        RCLCPP_INFO(this->get_logger(),"r[%i] = %f, theta[%i] (in degrees) = %f, x[%i] = %f, y[%i] = %f",
+                    loop_hit, r_[loop_hit], loop_hit, theta_[loop_hit]*180/M_PI, loop_hit, current_scan_[loop_hit].x, loop_hit, current_scan_[loop_hit].y);
+
+        // Add laser hit to background table
+        background_.pushback(r_[loop_hit],theta_[loop_hit]*180/M_PI);
+
+    }
 
 } // store_background
 
 void Datmo::reset_motion()
 {
     // TO COMPLETE
+    //bool dynamic_reset_[tab_size];
     // for each hit, we reset the dynamic table
     for (int loop_hit = 0; loop_hit < nb_beams_; loop_hit++)
-        ;
+        {dynamic_[loop_hit]=0;}
 
 } // reset_motion
 
@@ -27,7 +36,15 @@ void Datmo::detect_current_motion()
     // for each hit, compare the current range with the background to detect motion
     // we fill the table dynamic
     for (int loop_hit = 0; loop_hit < nb_beams_; loop_hit++)
-        ;
+        {
+            if background_[loop_hit][0]==r_[loop_hit] && background_[loop_hit][1]==theta_[loop_hit]
+            {
+                dynamic_[loop_hit]=0;
+            }
+            else{
+                dynamic_[loop_hit]=1;
+            }
+        }
 
 } // detect_simple_motion
 
@@ -42,10 +59,13 @@ void Datmo::detect_motion()
         if (!previous_robot_moving_)
         {
             // the robot was not moving
+            detect_current_motion();
         }
         else
         {
             // the robot was moving
+            store_background();
+            reset_motion();
         }
     }
     else
@@ -56,10 +76,12 @@ void Datmo::detect_motion()
         if (!previous_robot_moving_)
         {
             // the robot was not moving
+            reset_motion();
         }
         else
         {
             // the robot was moving
+            reset_motion();
         }
     }
 
@@ -89,6 +111,7 @@ void Datmo::perform_basic_clustering(float cluster_threshold)
         /*     if EUCLIDIAN DISTANCE between (the previous hit and the current one) is higher than "cluster_threshold"
                 {//the current hit does not belong to the same cluster*/
                 // to compute the euclidian distance use : float Datmo::distancePoints(geometry_msgs::Point pa, geometry_msgs::Point pb)
+        
     }
      //Dont forget to update the different information for the last cluster
     //...
@@ -222,4 +245,3 @@ void Datmo::detect_and_track_a_person()
     // detect_a_moving_person(), initialize_tracking() and track_a_person();
 
 }
-
