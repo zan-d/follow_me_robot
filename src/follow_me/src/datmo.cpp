@@ -4,7 +4,7 @@
 /*//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void Datmo::store_background()
-{
+{   
     // TO COMPLETE
     // store all the hits of the laser in the background table
     for (int loop_hit = 0; loop_hit < nb_beams_; loop_hit++)
@@ -14,7 +14,7 @@ void Datmo::store_background()
                     loop_hit, r_[loop_hit], loop_hit, theta_[loop_hit]*180/M_PI, loop_hit, current_scan_[loop_hit].x, loop_hit, current_scan_[loop_hit].y);
 
         // Add laser hit to background table
-        background_.pushback(r_[loop_hit],theta_[loop_hit]*180/M_PI);
+        background_[loop_hit] = r_[loop_hit];// background_.pushback(std::make_pair(r_[loop_hit],theta_[loop_hit])); // Info: better not to store in degrees since most mathematical libraries are stored in radians
 
     }
 
@@ -37,9 +37,10 @@ void Datmo::detect_current_motion()
     // we fill the table dynamic
     for (int loop_hit = 0; loop_hit < nb_beams_; loop_hit++)
         {
-            if background_[loop_hit][0]==r_[loop_hit] && background_[loop_hit][1]==theta_[loop_hit]
+            if (fabs(background_[loop_hit] - r_[loop_hit]) < detection_threshold) //&& background_[loop_hit][1]==theta_[loop_hit]
             {
                 dynamic_[loop_hit]=0;
+                
             }
             else{
                 dynamic_[loop_hit]=1;
@@ -105,12 +106,33 @@ void Datmo::perform_basic_clustering(float cluster_threshold)
     // the data related to each cluster are stored in cluster_start, cluster_end and nb_cluster: see Datmo.h for more details
     // use: float distancePoints(geometry_msgs::Point pa, geometry_msgs::Point pb) to compute the euclidian distance between 2 points
     nb_clusters_ = 0;
+    int init = 0; //initialize flag
     for (int loop_hit = 1; loop_hit < nb_beams_; loop_hit++)
     {
         // TO COMPLETE
         /*     if EUCLIDIAN DISTANCE between (the previous hit and the current one) is higher than "cluster_threshold"
                 {//the current hit does not belong to the same cluster*/
                 // to compute the euclidian distance use : float Datmo::distancePoints(geometry_msgs::Point pa, geometry_msgs::Point pb)
+        if (init == 0) 
+        {
+          cluster_start_[nb_clusters_] = loop_hit;
+          cluster_end_[nb_clusters_] = loop_hit;
+          init++;
+        }
+        else
+        {
+            float dist = Datmo::distance_points(current_scan_[cluster_end_[nb_clusters_]], current_scan_[loop_hit]);
+            if (dist <= default_cluster_threshold) 
+            {
+            	cluster_end_[nb_clusters_] = loop_hit;
+            }
+            else 
+            {
+            	nb_clusters_++;
+                cluster_start_[nb_clusters_] = loop_hit;
+          		cluster_end_[nb_clusters_] = loop_hit;
+            }
+        }
         
     }
      //Dont forget to update the different information for the last cluster
@@ -132,6 +154,11 @@ void Datmo::perform_advanced_clustering()
     {
         int start = cluster_start_[loop_cluster];
         int end = cluster_end_[loop_cluster];
+        float cluster_size_ = distance_points(current_scan_[start], current_scan_[end]);
+        cluster_middle_[loop_cluster].x = (current_scan_[start].x + current_scan_[end].x) * 0.5;
+        cluster_middle_[loop_cluster].y = (current_scan_[start].y + current_scan_[end].y) * 0.5;
+        cluster_dynamic_[loop_cluster] = compute_nb_dynamic(start, end)/(end - start + 1);
+        cluster_nb_points_[loop_cluster] = end - start + 1;
     }
 
 } // perform_advanced_clustering
@@ -141,6 +168,13 @@ int Datmo::compute_nb_dynamic(int start, int end)
     //TO COMPLETE
     // return the number of points that are dynamic between start and end
     int nb_dynamic = 0;
+    for (int loop_hit = start; loop_hit <= end; loop_hit++)
+    {
+        if (dynamic_[loop_hit] == 1)
+        {
+            nb_dynamic++;
+        }
+    }
  
     return (nb_dynamic);
 
