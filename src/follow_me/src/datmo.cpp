@@ -106,37 +106,31 @@ void Datmo::perform_basic_clustering(float cluster_threshold)
     // the data related to each cluster are stored in cluster_start, cluster_end and nb_cluster: see Datmo.h for more details
     // use: float distancePoints(geometry_msgs::Point pa, geometry_msgs::Point pb) to compute the euclidian distance between 2 points
     nb_clusters_ = 0;
-    int init = 0; //initialize flag
+    
+    // Initialize the first cluster with the first hit (loop_hit = 0)
+    cluster_start_[nb_clusters_] = 0;
+    cluster_end_[nb_clusters_] = 0;
+    
     for (int loop_hit = 1; loop_hit < nb_beams_; loop_hit++)
     {
         // TO COMPLETE
         /*     if EUCLIDIAN DISTANCE between (the previous hit and the current one) is higher than "cluster_threshold"
                 {//the current hit does not belong to the same cluster*/
                 // to compute the euclidian distance use : float Datmo::distancePoints(geometry_msgs::Point pa, geometry_msgs::Point pb)
-        if (init == 0) 
+        float dist = Datmo::distance_points(current_scan_[cluster_end_[nb_clusters_]], current_scan_[loop_hit]);
+        if (dist <= cluster_threshold) 
         {
-          cluster_start_[nb_clusters_] = loop_hit;
-          cluster_end_[nb_clusters_] = loop_hit;
-          init++;
+            cluster_end_[nb_clusters_] = loop_hit;
         }
-        else
+        else 
         {
-            float dist = Datmo::distance_points(current_scan_[cluster_end_[nb_clusters_]], current_scan_[loop_hit]);
-            if (dist <= default_cluster_threshold) 
-            {
-            	cluster_end_[nb_clusters_] = loop_hit;
-            }
-            else 
-            {
-            	nb_clusters_++;
-                cluster_start_[nb_clusters_] = loop_hit;
-          		cluster_end_[nb_clusters_] = loop_hit;
-            }
+            nb_clusters_++;
+            cluster_start_[nb_clusters_] = loop_hit;
+            cluster_end_[nb_clusters_] = loop_hit;
         }
-        
     }
-     //Dont forget to update the different information for the last cluster
-    //...
+    // Increment nb_clusters_ to account for the last cluster that was being built
+    nb_clusters_++;
 
 } // perform_basic_clustering
 
@@ -154,7 +148,7 @@ void Datmo::perform_advanced_clustering()
     {
         int start = cluster_start_[loop_cluster];
         int end = cluster_end_[loop_cluster];
-        float cluster_size_ = distance_points(current_scan_[start], current_scan_[end]);
+        cluster_size_[loop_cluster] = distance_points(current_scan_[start], current_scan_[end]);
         cluster_middle_[loop_cluster].x = (current_scan_[start].x + current_scan_[end].x) * 0.5;
         cluster_middle_[loop_cluster].y = (current_scan_[start].y + current_scan_[end].y) * 0.5;
         cluster_dynamic_[loop_cluster] = compute_nb_dynamic(start, end)/(end - start + 1);
@@ -185,7 +179,7 @@ int Datmo::compute_nb_dynamic(int start, int end)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void Datmo::detect_legs()
 {
-    // TO COMPLETE
+    // TO COMPLETEF
     // a leg is a cluster:
         // - with a size higher than "leg_size_min";
         // - with a size lower than "leg_size_max;
@@ -195,7 +189,18 @@ void Datmo::detect_legs()
     nb_legs_detected_ = 0;
     for (int loop=0; loop<nb_clusters_; loop++)//loop over all the clusters
     {
-        // TO COMPLETE
+        if (cluster_size_[loop] >= leg_size_min && cluster_size_[loop] <= leg_size_max && cluster_nb_points_[loop] > 5)
+        {
+            leg_cluster_[nb_legs_detected_] = loop;
+            leg_detected_[nb_legs_detected_] = cluster_middle_[loop]; //position of leg
+            if (cluster_dynamic_[loop] >= dynamic_threshold){
+                leg_dynamic_[nb_legs_detected_] = true;
+            }
+            else{
+                leg_dynamic_[nb_legs_detected_] = false;
+            }
+            nb_legs_detected_++;
+        }    
     }
    
 } // detect_legs
@@ -211,7 +216,19 @@ void Datmo::detect_persons()
     for (int loop_leg_left = 0; loop_leg_left < nb_legs_detected_; loop_leg_left++)
         for (int loop_leg_right = 1+loop_leg_left; loop_leg_right < nb_legs_detected_; loop_leg_right++)
         {
-            // TO COMPLETE
+            float dist = Datmo::distance_points(leg_detected_[loop_leg_left],leg_detected_[loop_leg_right]);
+            if (dist <= legs_distance_max)
+            {
+                detected_person_[nb_persons_detected_].x = (leg_detected_[loop_leg_left].x + leg_detected_[loop_leg_right].x) * 0.5;
+                detected_person_[nb_persons_detected_].y = (leg_detected_[loop_leg_left].y + leg_detected_[loop_leg_right].y) * 0.5;
+                leg_left_[nb_persons_detected_] = loop_leg_left;
+                leg_right_[nb_persons_detected_] = loop_leg_right;
+                if (leg_dynamic_[loop_leg_left] && leg_dynamic_[loop_leg_right])
+                    person_dynamic_[nb_persons_detected_] = true;
+                else
+                    person_dynamic_[nb_persons_detected_] = false;
+                nb_persons_detected_++;
+            }   
         }
     
 } // detect_persons
@@ -224,10 +241,13 @@ void Datmo::detect_a_moving_person()
     
     is_moving_person_detected_ = false;
     for (int loop_persons = 0; loop_persons < nb_persons_detected_; loop_persons++)
-        if (person_dynamic_[loop_persons])
+    {
+        if (person_dynamic_[loop_persons] == true)
         {
-            //TO COMPLETE
+            moving_detected_person_ = detected_person_[loop_persons];
+            is_moving_person_detected_ = true;
         }
+    }
     /*if ( is_moving_person_detected )
         pub_detection.publish(moving_detected_person);*/
 
