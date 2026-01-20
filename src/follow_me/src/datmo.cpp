@@ -118,7 +118,7 @@ void Datmo::perform_basic_clustering(float cluster_threshold)
                 {//the current hit does not belong to the same cluster*/
                 // to compute the euclidian distance use : float Datmo::distancePoints(geometry_msgs::Point pa, geometry_msgs::Point pb)
         float dist = Datmo::distance_points(current_scan_[cluster_end_[nb_clusters_]], current_scan_[loop_hit]);
-        if (dist <= cluster_threshold) 
+        if (dist <= default_cluster_threshold) 
         {
             cluster_end_[nb_clusters_] = loop_hit;
         }
@@ -148,10 +148,12 @@ void Datmo::perform_advanced_clustering()
     {
         int start = cluster_start_[loop_cluster];
         int end = cluster_end_[loop_cluster];
-        cluster_size_[loop_cluster] = distance_points(current_scan_[start], current_scan_[end]);
+        RCLCPP_INFO(this->get_logger(), "clusters: size calc with idx %d  and %d\n", start, end);
+        float size = distance_points(current_scan_[start], current_scan_[end]);
+        cluster_size_[loop_cluster] = size;
         cluster_middle_[loop_cluster].x = (current_scan_[start].x + current_scan_[end].x) * 0.5;
         cluster_middle_[loop_cluster].y = (current_scan_[start].y + current_scan_[end].y) * 0.5;
-        cluster_dynamic_[loop_cluster] = compute_nb_dynamic(start, end)/(end - start + 1);
+        cluster_dynamic_[loop_cluster] = (float)compute_nb_dynamic(start, end)/(float)(end - start + 1)*100;// percentage dynamic
         cluster_nb_points_[loop_cluster] = end - start + 1;
     }
 
@@ -248,8 +250,8 @@ void Datmo::detect_a_moving_person()
             is_moving_person_detected_ = true;
         }
     }
-    /*if ( is_moving_person_detected )
-        pub_detection.publish(moving_detected_person);*/
+    if ( is_moving_person_detected_ )
+        pub_detection_->publish(moving_detected_person_);
 
 } // detect_a_moving_person
 
@@ -259,34 +261,72 @@ void Datmo::detect_a_moving_person()
 void Datmo::initialize_tracking()
 {
     //Initialize tracking before running track_a_person();
+    frequency_ = frequency_init;
+    uncertainty_ = uncertainty_init;
+
+    tracked_person_ = moving_detected_person_; 
+    track_a_person();
+    
 }
 
 void Datmo::track_a_person()
 {
-    //see slides 29 to 42 related to tracking in the Datmo lecture
-    float distance_min;
-    
+    float distance_min = std::numeric_limits<float>::max(); //set as max float value
+    index_min_ = -1;
+    associated_ = false;
     // association between the tracked person and the possible detection
     for (int loop_persons = 0; loop_persons < nb_persons_detected_; loop_persons++)
     {
-        float current_dist;
+        float current_dist = Datmo::distance_points(tracked_person_, detected_person_[loop_persons]);
+        if (current_dist < distance_min)
+        {
+            distance_min = current_dist;
+            index_min_ = loop_persons;
+            associated_ = true;
+        }
         // we search for the detected_person which is the closest one to the tracked_person
         // we store the related information in index_min_, distance_min and associated_
     }
-    
-    if ( associated_ )
+
+    // frequency starts at freq_init and with each frame that you still see the person, freq increases up to max value
+    // uncertainty inceases when you do not see the person, from min to max by inc
+    if (associated_ == true)
     {
         // update the information related to the tracked_person, frequency and uncertainty knowing that there is an association
         // should we publish or not tracked_person ?
+        if ((frequency_+5)>= frequency_max){
+            frequency_ = frequency_max;   
+        }else{
+            frequency_+=5;
+        }
+         
+        uncertainty_ = uncertainty_min;
+        
+        tracked_person_ = detected_person_[index_min_];
+        pub_tracking_->publish(tracked_person_);
     }
     else
     {
         // update the information related to the tracked_person, frequency and uncertainty knowing that there is no association
         // should we publish or not tracked_person ?
+        frequency_--;   
+        if ((uncertainty_+uncertainty_inc) >= uncertainty_max){
+            uncertainty_ = uncertainty_max;   
+        }else{
+            uncertainty_ += uncertainty_inc;   
+        }               
+        
+        if (frequency_ <= 0)
+        {
+            is_person_tracked_ = false;
+            was_person_tracked_ = false;
+        }    
     }
-    // do not forget to update tracked_person according to the current association
+    // do not forget to update tracked_person according to the current association?
     
 }
+
+
 
 void Datmo::detect_and_track_a_person()
 {
@@ -297,5 +337,22 @@ void Datmo::detect_and_track_a_person()
     // to check if you are detecting a moving person or tracking a person
     // the 3 methods you have to use are:
     // detect_a_moving_person(), initialize_tracking() and track_a_person();
+    detect_a_moving_person();
+    if (is_moving_person_detected_ && !was_person_tracked_)
+    {
+        initialize_tracking();
+    }
+
+    if (is_moving_person_detected_){
+        track_a_person();
+        is_person_tracked_ = true;
+        was_person_tracked_ = true;
+    }
+    else
+    {
+        track_a_person();
+    }
+    
 
 }
+
